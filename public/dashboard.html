@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de bord - AgriX</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .dashboard-container {
+            background: white;
+            border-radius: 2rem;
+            padding: 3rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .dashboard-container .success-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .dashboard-container h1 { font-size: 2rem; color: #0b2b3b; margin-bottom: 0.5rem; }
+        .dashboard-container h1 span { color: #2b7a4b; }
+        .dashboard-container .welcome-text { color: #4a5b6e; font-size: 1.1rem; margin-bottom: 2rem; }
+        .user-info {
+            background: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+        .user-info p { margin: 0.5rem 0; color: #1e2c3a; }
+        .user-info p strong { color: #0b2b3b; }
+        .btn-dashboard {
+            display: inline-block;
+            padding: 0.8rem 2.5rem;
+            border: none;
+            border-radius: 60px;
+            background: #2b7a4b;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            width: 100%;
+        }
+        .btn-dashboard:hover { background: #1e5a36; transform: translateY(-2px); box-shadow: 0 8px 25px rgba(43,122,75,0.3); }
+        .btn-logout {
+            padding: 0.8rem 2.5rem;
+            border: none;
+            border-radius: 60px;
+            background: #fee9e7;
+            color: #b33a34;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .btn-logout:hover { background: #fad2cd; transform: translateY(-2px); }
+        .loading { color: #4a5b6e; font-size: 1.1rem; }
+        .hidden { display: none !important; }
+        .error-msg { color: #b33a34; background: #fee9e7; padding: 1rem; border-radius: 1rem; margin-bottom: 1rem; display: none; }
+        .actions { display: flex; flex-direction: column; gap: 0.8rem; }
+        @media (max-width: 480px) {
+            .dashboard-container { padding: 2rem 1.5rem; }
+            .dashboard-container h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container" id="dashboard">
+        <div id="loadingContent">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+            <p>Chargement de votre tableau de bord...</p>
+        </div>
+
+        <div id="dashboardContent" class="hidden">
+            <div class="success-icon">🌾</div>
+            <h1>Bienvenue sur Agri<span>X</span></h1>
+            <p class="welcome-text">Heureux de vous revoir !</p>
+
+            <div id="errorMsg" class="error-msg"></div>
+
+            <div class="user-info">
+                <p><strong>👤 Nom :</strong> <span id="userName">---</span></p>
+                <p><strong>📧 Email :</strong> <span id="userEmail">---</span></p>
+                <p><strong>📅 Connecté depuis :</strong> <span id="loginTime">---</span></p>
+            </div>
+
+            <div class="actions">
+                <!-- ✅ Redirige vers meteo.html -->
+                <a href="/meteo.html" class="btn-dashboard">🌤️ Voir la météo</a>
+                <button class="btn-logout" id="logoutBtn">🚪 Déconnexion</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        async function loadUserInfo() {
+            const token = localStorage.getItem('agrix_token');
+            const loading = document.getElementById('loadingContent');
+            const content = document.getElementById('dashboardContent');
+            const errorMsg = document.getElementById('errorMsg');
+
+            if (!token) {
+                errorMsg.textContent = '❌ Vous n\'êtes pas connecté. Redirection...';
+                errorMsg.style.display = 'block';
+                setTimeout(() => {
+                    window.location.href = '/auth/login.html';
+                }, 1500);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('agrix_token');
+                    errorMsg.textContent = '❌ Session expirée. Redirection...';
+                    errorMsg.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = '/auth/login.html';
+                    }, 1500);
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('📦 Données:', data);
+
+                if (data.user) {
+                    const displayName = data.user.fullName || data.user.email || 'Utilisateur';
+                    const userEmail = data.user.email || 'email@example.com';
+                    const createdAt = data.user.createdAt || new Date().toLocaleString('fr-FR');
+
+                    document.getElementById('userName').textContent = displayName;
+                    document.getElementById('userEmail').textContent = userEmail;
+                    document.getElementById('loginTime').textContent = createdAt;
+
+                    localStorage.setItem('user_name', displayName);
+                    localStorage.setItem('user_email', userEmail);
+
+                    loading.classList.add('hidden');
+                    content.classList.remove('hidden');
+                } else {
+                    throw new Error('Données utilisateur non trouvées');
+                }
+
+            } catch (error) {
+                console.error('❌ Erreur:', error);
+                
+                const displayName = localStorage.getItem('user_name') || 'Utilisateur';
+                const userEmail = localStorage.getItem('user_email') || 'email@example.com';
+
+                document.getElementById('userName').textContent = displayName;
+                document.getElementById('userEmail').textContent = userEmail;
+                document.getElementById('loginTime').textContent = new Date().toLocaleString('fr-FR');
+
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('agrix_token');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('user_email');
+            window.location.href = '/auth/login.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserInfo();
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+        });
+    </script>
+</body>
+</html>

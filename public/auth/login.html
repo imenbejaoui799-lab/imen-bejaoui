@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - AgriX</title>
+    <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#2b7a4b" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="#2b7a4b" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="#2b7a4b" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+                <h1>Agri<span>X</span></h1>
+            </div>
+            <p>Gestion agricole intelligente</p>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" placeholder="exemple@agrix.com" required>
+            </div>
+            <div class="form-group">
+                <label>Mot de passe</label>
+                <input type="password" id="password" placeholder="••••••••" required>
+            </div>
+            <div class="form-options">
+                <a href="#" id="forgotPassword">Mot de passe oublié ?</a>
+            </div>
+            <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
+        </form>
+
+        <div id="message" class="message" style="display: none;"></div>
+
+        <div class="auth-footer">
+            <span>Vous n'avez pas de compte ? <a href="register.html">Inscrivez-vous</a></span>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        function showMessage(text, type = 'error') {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            return msg;
+        }
+
+        // ✅ Vérifier si l'utilisateur est déjà connecté
+        function checkAuth() {
+            const token = localStorage.getItem('agrix_token');
+            if (token) {
+                // Rediriger vers le dashboard (à la racine)
+                window.location.href = '/dashboard.html';
+                return true;
+            }
+            return false;
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const btn = document.getElementById('loginBtn');
+
+            if (!email || !password) {
+                showMessage('Veuillez remplir tous les champs', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Connexion...';
+
+            try {
+                console.log('📤 Tentative de connexion...');
+
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                console.log('📦 Réponse:', data);
+
+                if (data.token) {
+                    // Stocker le token
+                    localStorage.setItem('agrix_token', data.token);
+                    localStorage.setItem('user_email', data.user?.email || email);
+                    localStorage.setItem('user_name', data.user?.fullName || email);
+
+                    showMessage('✅ Connexion réussie ! Redirection...', 'success');
+                    
+                    // ✅ REDIRECTION VERS dashboard.html (à la racine)
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 1500);
+
+                } else {
+                    showMessage('❌ ' + (data.error || 'Identifiants invalides'), 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Se connecter';
+                }
+            } catch (error) {
+                console.error('💥 Erreur:', error);
+                showMessage('❌ Erreur de connexion au serveur', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Se connecter';
+            }
+        }
+
+        // Mot de passe oublié
+        document.getElementById('forgotPassword').addEventListener('click', function(e) {
+            e.preventDefault();
+            showMessage('🔐 Un lien de réinitialisation vous sera envoyé par email.', 'success');
+        });
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Vérifier l'authentification
+            if (checkAuth()) return;
+
+            const form = document.getElementById('loginForm');
+            if (form) {
+                form.addEventListener('submit', handleLogin);
+                console.log('✅ Formulaire de connexion initialisé');
+            }
+        });
+    </script>
+</body>
+</html>

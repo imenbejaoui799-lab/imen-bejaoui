@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription - Agrix</title>
+    <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#2b7a4b" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="#2b7a4b" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="#2b7a4b" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+                <h1>Agri<span>X</span></h1>
+            </div>
+            <p>Gestion agricole intelligente</p>
+        </div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label>Nom complet *</label>
+                <input type="text" id="fullName" placeholder="Jean Dupont" required>
+            </div>
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" id="email" placeholder="exemple@domaine.com" required>
+            </div>
+            <div class="form-group">
+                <label>Mot de passe *</label>
+                <input type="password" id="password" placeholder="Min. 8 caractères" required minlength="8">
+            </div>
+            <button type="submit" class="btn-primary" id="registerBtn">
+                Créer mon compte
+            </button>
+        </form>
+
+        <div id="message" class="message" style="display: none;"></div>
+
+        <div class="auth-footer">
+            <span>Déjà un compte ? <a href="login.html">Connectez-vous</a></span>
+        </div>
+    </div>
+
+    <script>
+        // ✅ UTILISEZ LE PROXY (pas besoin de mettre le port 8000)
+        const API_URL = '/api';
+
+        function showMessage(text, type = 'error') {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            setTimeout(() => { 
+                msg.style.display = 'none'; 
+            }, 5000);
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+            
+            const fullName = document.getElementById('fullName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const btn = document.getElementById('registerBtn');
+
+            if (!fullName || !email || !password) {
+                showMessage('Tous les champs sont requis', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Inscription...';
+
+            try {
+                console.log('📤 Envoi vers:', `${API_URL}/register`);
+                console.log('📤 Données:', { fullName, email, password });
+
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ fullName, email, password })
+                });
+
+                console.log('📥 Status:', response.status);
+
+                const data = await response.json();
+                console.log('📦 Réponse:', data);
+
+                if (response.ok && data.message) {
+                    showMessage('✅ ' + data.message, 'success');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1500);
+                } else {
+                    showMessage('❌ ' + (data.error || 'Erreur inconnue'), 'error');
+                }
+            } catch (error) {
+                console.error('💥 Erreur:', error);
+                showMessage('❌ Erreur: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Créer mon compte';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('registerForm');
+            if (form) {
+                form.addEventListener('submit', handleRegister);
+                console.log('✅ Formulaire d\'inscription initialisé');
+                console.log('📡 API_URL:', API_URL);
+            }
+        });
+    </script>
+</body>
+</html>

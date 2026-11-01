@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Météo - AgriX</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 260px;
+            background: #0b2b3b;
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        .sidebar .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 2.5rem;
+            text-decoration: none;
+        }
+        .sidebar .logo span { color: #4a9b6a; }
+        .sidebar .menu { list-style: none; flex: 1; }
+        .sidebar .menu li { margin-bottom: 0.5rem; }
+        .sidebar .menu li a {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .sidebar .menu li a:hover { background: rgba(255,255,255,0.08); color: white; }
+        .sidebar .menu li a.active { background: rgba(43,122,75,0.3); color: #4a9b6a; }
+        .sidebar .menu li a .icon { font-size: 1.2rem; width: 24px; text-align: center; }
+        .sidebar .user-info {
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .sidebar .user-info .avatar {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: #2b7a4b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .sidebar .user-info .user-details .name { color: white; font-weight: 600; font-size: 0.95rem; }
+        .sidebar .user-info .user-details .email { color: rgba(255,255,255,0.5); font-size: 0.8rem; }
+        .btn-logout-sidebar {
+            padding: 0.6rem 1rem;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            width: 100%;
+            text-align: left;
+        }
+        .btn-logout-sidebar:hover { background: rgba(255,255,255,0.2); color: white; }
+        .main-content {
+            margin-left: 260px;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .main-content .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .main-content .header h1 {
+            font-size: 1.8rem;
+            color: #0b2b3b;
+            font-weight: 800;
+        }
+        .main-content .header h1 span { color: #2b7a4b; }
+        .btn-logout-header {
+            padding: 0.6rem 1.8rem;
+            border: none;
+            border-radius: 60px;
+            background: #fee9e7;
+            color: #b33a34;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-logout-header:hover { background: #fad2cd; transform: translateY(-2px); }
+        .location-status {
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .location-status .status { display: flex; align-items: center; gap: 0.8rem; }
+        .location-status .status .dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .location-status .status .dot.active { background: #2b7a4b; }
+        .location-status .status .dot.loading { background: #ffc107; animation: pulse 1s infinite; }
+        .location-status .status .dot.error { background: #b33a34; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .btn-locate {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 60px;
+            background: #2b7a4b;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-locate:hover { background: #1e5a36; transform: scale(1.02); }
+        .weather-main {
+            background: linear-gradient(135deg, #0b2b3b, #1a4a3a);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            color: white;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 2rem;
+            align-items: center;
+        }
+        .weather-main .weather-icon { font-size: 5rem; }
+        .weather-main .weather-info .location { font-size: 1.2rem; font-weight: 500; color: rgba(255,255,255,0.7); }
+        .weather-main .weather-info .temp { font-size: 4rem; font-weight: 900; }
+        .weather-main .weather-info .temp span { font-size: 2rem; font-weight: 400; color: rgba(255,255,255,0.5); }
+        .weather-main .weather-info .description { font-size: 1.2rem; color: rgba(255,255,255,0.8); }
+        .weather-main .weather-info .feels-like { font-size: 0.9rem; color: rgba(255,255,255,0.5); }
+        .weather-main .weather-extra { text-align: right; }
+        .weather-main .weather-extra .update-time { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+        .weather-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .weather-detail {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .weather-detail:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+        .weather-detail .icon { font-size: 2rem; }
+        .weather-detail .label { color: #4a5b6e; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.3rem; }
+        .weather-detail .value { color: #0b2b3b; font-size: 1.5rem; font-weight: 700; margin-top: 0.2rem; }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .chart-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+        .chart-card h3 { color: #0b2b3b; font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+        .chart-card canvas { max-height: 220px; }
+        .map-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+        .map-card h3 { color: #0b2b3b; font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+        #map { height: 300px; border-radius: 12px; width: 100%; }
+        .chatbot-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            margin-top: 2rem;
+        }
+        .chatbot-section .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .chatbot-section .chat-header h3 { color: #0b2b3b; font-size: 1.1rem; font-weight: 600; }
+        .chatbot-section .chat-header .chat-status { font-size: 0.8rem; color: #2b7a4b; font-weight: 500; }
+        .chatbot-section .chat-header .chat-status .dot-online {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #2b7a4b; margin-right: 0.3rem; animation: pulse 2s infinite;
+        }
+        .chat-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            min-height: 250px;
+        }
+        .chat-messages .message { margin-bottom: 1rem; display: flex; gap: 0.8rem; align-items: flex-start; }
+        .chat-messages .message.user { flex-direction: row-reverse; }
+        .chat-messages .message .avatar {
+            width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;
+        }
+        .chat-messages .message .avatar.bot { background: #2b7a4b; color: white; }
+        .chat-messages .message .avatar.user { background: #e9edf2; color: #0b2b3b; }
+        .chat-messages .message .bubble {
+            padding: 0.8rem 1.2rem;
+            border-radius: 16px;
+            max-width: 80%;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        .chat-messages .message.user .bubble { background: #2b7a4b; color: white; border-bottom-right-radius: 4px; }
+        .chat-messages .message.bot .bubble { background: white; color: #1e2c3a; border-bottom-left-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .chat-input-area { display: flex; gap: 0.8rem; align-items: center; }
+        .chat-input-area textarea {
+            flex: 1;
+            padding: 0.8rem 1.2rem;
+            border: 1.5px solid #dce3ec;
+            border-radius: 60px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: none;
+            outline: none;
+            transition: border 0.2s;
+            min-height: 50px;
+            max-height: 120px;
+        }
+        .chat-input-area textarea:focus { border-color: #2b7a4b; }
+        .chat-input-area textarea::placeholder { color: #a3b3c9; }
+        .chat-input-area .btn-send {
+            padding: 0.8rem 1.8rem;
+            border: none;
+            border-radius: 60px;
+            background: #2b7a4b;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            height: 50px;
+        }
+        .chat-input-area .btn-send:hover { background: #1e5a36; transform: scale(1.02); }
+        .chat-input-area .btn-send:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .quick-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.8rem; }
+        .quick-actions button {
+            padding: 0.4rem 1rem;
+            border: 1px solid #dce3ec;
+            border-radius: 60px;
+            background: white;
+            color: #1e2c3a;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .quick-actions button:hover { border-color: #2b7a4b; background: #f0f7f0; color: #2b7a4b; }
+        .typing-indicator { display: none; padding: 0.5rem 1rem; color: #4a5b6e; font-size: 0.9rem; }
+        .typing-indicator .dots span { display: inline-block; animation: dotBounce 1.4s infinite; }
+        .typing-indicator .dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator .dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes dotBounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+        @media (max-width: 1024px) { .charts-grid { grid-template-columns: 1fr; } .weather-main { grid-template-columns: 1fr; text-align: center; } .weather-main .weather-extra { text-align: center; } }
+        @media (max-width: 768px) {
+            .sidebar { width: 72px; padding: 1rem 0.8rem; }
+            .sidebar .logo span, .sidebar .logo .logo-text { display: none; }
+            .sidebar .menu li a span:not(.icon) { display: none; }
+            .sidebar .user-info .user-details { display: none; }
+            .btn-logout-sidebar { text-align: center; font-size: 0.7rem; padding: 0.4rem; }
+            .main-content { margin-left: 72px; padding: 1rem; }
+            .main-content .header h1 { font-size: 1.2rem; }
+            .weather-main .weather-info .temp { font-size: 3rem; }
+            .weather-details { grid-template-columns: repeat(2, 1fr); }
+            .chat-input-area { flex-direction: column; }
+            .chat-input-area textarea { width: 100%; }
+            .chat-input-area .btn-send { width: 100%; }
+        }
+        @media (max-width: 480px) {
+            .weather-details { grid-template-columns: 1fr; }
+            .location-status { flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+        <a href="/" class="logo">
+            🌾 <span class="logo-text">Agri<span>X</span></span>
+        </a>
+
+        <ul class="menu">
+            <li><a href="/dashboard.html"><span class="icon">📊</span> <span>Dashboard</span></a></li>
+            <li><a href="/agriculture.html"><span class="icon">🌾</span> <span>Agriculture</span></a></li>
+            <li><a href="/meteo.html" class="active"><span class="icon">🌤️</span> <span>Météo</span></a></li>
+            <li><a href="#"><span class="icon">📈</span> <span>Rapports</span></a></li>
+            <li><a href="#"><span class="icon">⚙️</span> <span>Paramètres</span></a></li>
+        </ul>
+
+        <div class="user-info">
+            <div class="avatar" id="userAvatar">I</div>
+            <div class="user-details">
+                <div class="name" id="userName">Imen Bejaoui</div>
+                <div class="email" id="userEmail">imenbejaoui@gmail.com</div>
+            </div>
+        </div>
+        <button class="btn-logout-sidebar" id="logoutSidebarBtn">🚪 Déconnexion</button>
+    </aside>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="main-content">
+        <div class="header">
+            <h1>🌤️ Météo <span>en temps réel</span></h1>
+            <button class="btn-logout-header" id="logoutBtn">🚪 Déconnexion</button>
+        </div>
+
+        <!-- ===== LOCALISATION ===== -->
+        <div class="location-status">
+            <div class="status">
+                <span class="dot" id="locationDot"></span>
+                <span id="locationText">📍 Recherche de votre position...</span>
+            </div>
+            <button class="btn-locate" id="locateBtn">📍 Ma position</button>
+        </div>
+
+        <!-- ===== MÉTÉO PRINCIPALE ===== -->
+        <div class="weather-main" id="weatherMain">
+            <div class="weather-icon" id="weatherIcon">🌤️</div>
+            <div class="weather-info">
+                <div class="location" id="weatherLocation">Paris, France</div>
+                <div class="temp" id="weatherTemp">--<span>°C</span></div>
+                <div class="description" id="weatherDesc">Chargement...</div>
+                <div class="feels-like" id="feelsLike">Ressenti : --°C</div>
+            </div>
+            <div class="weather-extra">
+                <div class="update-time" id="updateTime">🔄 Mise à jour : --:--</div>
+                <div style="margin-top:0.5rem;font-size:0.8rem;opacity:0.5;">Données Open-Meteo</div>
+            </div>
+        </div>
+
+        <!-- ===== DÉTAILS ===== -->
+        <div class="weather-details" id="weatherDetails">
+            <div class="weather-detail">
+                <div class="icon">💧</div>
+                <div class="label">Humidité</div>
+                <div class="value" id="detailHumidity">--%</div>
+            </div>
+            <div class="weather-detail">
+                <div class="icon">🌧️</div>
+                <div class="label">Précipitations</div>
+                <div class="value" id="detailPrecip">-- mm</div>
+            </div>
+            <div class="weather-detail">
+                <div class="icon">💨</div>
+                <div class="label">Vent</div>
+                <div class="value" id="detailWind">-- km/h</div>
+            </div>
+            <div class="weather-detail">
+                <div class="icon">🧭</div>
+                <div class="label">Direction du vent</div>
+                <div class="value" id="detailWindDir">--°</div>
+            </div>
+            <div class="weather-detail">
+                <div class="icon">☀️</div>
+                <div class="label">Lever du soleil</div>
+                <div class="value" id="detailSunrise">--:--</div>
+            </div>
+            <div class="weather-detail">
+                <div class="icon">🌙</div>
+                <div class="label">Coucher du soleil</div>
+                <div class="value" id="detailSunset">--:--</div>
+            </div>
+        </div>
+
+        <!-- ===== GRAPHIQUES ===== -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>📈 Température (7 jours)</h3>
+                <canvas id="tempChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>🌧️ Précipitations (7 jours)</h3>
+                <canvas id="precipChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ===== CARTE ===== -->
+        <div class="map-card">
+            <h3>🗺️ Votre position</h3>
+            <div id="map"></div>
+        </div>
+
+        <!-- ===== CHATBOT ===== -->
+        <div class="chatbot-section">
+            <div class="chat-header">
+                <h3>🌾 Assistant Agricole IA</h3>
+                <div class="chat-status">
+                    <span class="dot-online"></span> En ligne
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot">
+                    <div class="avatar bot">🌾</div>
+                    <div class="bubble">
+                        Bonjour ! 👋<br>
+                        Je suis votre assistant agricole IA. Je peux vous aider avec :
+                        <ul style="margin-top:0.5rem;padding-left:1.2rem;">
+                            <li>📊 Recommandations de cultures selon la météo</li>
+                            <li>💧 Conseils d'irrigation</li>
+                            <li>🌱 Analyse des sols</li>
+                            <li>📅 Planning des semis</li>
+                        </ul>
+                        <div style="margin-top:0.5rem;font-size:0.85rem;color:#4a5b6e;">
+                            💡 Astuce : Posez-moi une question sur votre culture !
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="dots"><span>🌾</span><span>🌾</span><span>🌾</span></div>
+                <span style="margin-left:0.5rem;">L'assistant réfléchit...</span>
+            </div>
+
+            <div class="chat-input-area">
+                <textarea id="chatInput" rows="1" placeholder="Posez votre question agricole..."></textarea>
+                <button class="btn-send" id="sendBtn">📤 Envoyer</button>
+            </div>
+
+            <div class="quick-actions">
+                <button onclick="sendQuickQuestion('irrigation')">💧 Irrigation</button>
+                <button onclick="sendQuickQuestion('cultures')">🌱 Cultures</button>
+                <button onclick="sendQuickQuestion('sol')">🌍 Analyse sol</button>
+                <button onclick="sendQuickQuestion('planning')">📅 Planning semis</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ============================================
+        // CONFIGURATION
+        // ============================================
+        const API_URL = '/api';
+
+        // ============================================
+        // VARIABLES
+        // ============================================
+        let map = null;
+        let mapMarker = null;
+        let tempChart = null;
+        let precipChart = null;
+        let currentPosition = { lat: 48.8566, lng: 2.3522 };
+        let currentCity = 'Paris, France';
+        let weatherContextData = {};
+
+        // ============================================
+        // AUTH
+        // ============================================
+
+        function checkAuth() {
+            const token = localStorage.getItem('agrix_token');
+            if (!token) {
+                window.location.href = '/auth/login.html';
+                return false;
+            }
+            return true;
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('agrix_token');
+            window.location.href = '/auth/login.html';
+        }
+
+        // ============================================
+        // MÉTÉO
+        // ============================================
+
+        async function fetchWeather(lat, lon) {
+            try {
+                const params = {
+                    latitude: lat,
+                    longitude: lon,
+                    current: "temperature_2m,precipitation,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,apparent_temperature",
+                    daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset",
+                    timezone: "auto",
+                    forecast_days: 7
+                };
+
+                const queryString = new URLSearchParams(params).toString();
+                const url = `https://api.open-meteo.com/v1/forecast?${queryString}`;
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Erreur météo');
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Erreur météo:', error);
+                throw error;
+            }
+        }
+
+        function getWeatherIcon(code) {
+            const icons = { 0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️', 45: '🌫️', 48: '🌫️', 51: '🌦️', 53: '🌦️', 55: '🌧️', 61: '🌧️', 63: '🌧️', 65: '🌧️', 71: '❄️', 73: '❄️', 75: '❄️', 80: '🌧️', 81: '🌧️', 82: '⛈️', 95: '⛈️', 96: '⛈️', 99: '⛈️' };
+            return icons[code] || '🌡️';
+        }
+
+        function getWeatherLabel(code) {
+            const labels = {
+                0: 'Ciel dégagé', 1: 'Principalement dégagé', 2: 'Partiellement nuageux', 3: 'Couvert',
+                45: 'Brouillard', 48: 'Brouillard givrant', 51: 'Bruine légère', 53: 'Bruine modérée',
+                55: 'Bruine dense', 61: 'Pluie légère', 63: 'Pluie modérée', 65: 'Pluie forte',
+                71: 'Neige légère', 73: 'Neige modérée', 75: 'Neige forte', 80: 'Averses légères',
+                81: 'Averses modérées', 82: 'Averses violentes', 95: 'Orage', 96: 'Orage avec grêle', 99: 'Orage violent'
+            };
+            return labels[code] || 'Inconnu';
+        }
+
+        function formatTime(dateStr) {
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            } catch { return '--:--'; }
+        }
+
+        function displayWeather(data, city) {
+            if (!data || !data.current) return;
+            const current = data.current;
+            const daily = data.daily;
+
+            document.getElementById('weatherIcon').textContent = getWeatherIcon(current.weather_code);
+            document.getElementById('weatherTemp').innerHTML = `${Math.round(current.temperature_2m)}<span>°C</span>`;
+            document.getElementById('weatherDesc').textContent = getWeatherLabel(current.weather_code);
+            document.getElementById('feelsLike').textContent = `Ressenti : ${Math.round(current.apparent_temperature)}°C`;
+            document.getElementById('weatherLocation').textContent = `📍 ${city}`;
+            document.getElementById('updateTime').textContent = `🔄 Mise à jour : ${new Date().toLocaleTimeString('fr-FR')}`;
+
+            document.getElementById('detailHumidity').textContent = `${current.relative_humidity_2m}%`;
+            document.getElementById('detailPrecip').textContent = `${current.precipitation} mm`;
+            document.getElementById('detailWind').textContent = `${Math.round(current.wind_speed_10m)} km/h`;
+            document.getElementById('detailWindDir').textContent = `${Math.round(current.wind_direction_10m)}°`;
+
+            if (daily.sunrise && daily.sunrise.length > 0) {
+                document.getElementById('detailSunrise').textContent = formatTime(daily.sunrise[0]);
+                document.getElementById('detailSunset').textContent = formatTime(daily.sunset[0]);
+            }
+
+            updateCharts(data);
+            updateWeatherContext(data);
+        }
+
+        // ============================================
+        // CONTEXTE MÉTÉO POUR CHATBOT
+        // ============================================
+
+        function updateWeatherContext(data) {
+            if (data && data.current) {
+                weatherContextData = {
+                    temperature: data.current.temperature_2m,
+                    humidity: data.current.relative_humidity_2m,
+                    precipitation: data.current.precipitation,
+                    windSpeed: data.current.wind_speed_10m,
+                    weatherCode: data.current.weather_code,
+                    weatherLabel: getWeatherLabel(data.current.weather_code),
+                    forecast: data.daily
+                };
+                console.log('🌤️ Contexte météo mis à jour:', weatherContextData);
+            }
+        }
+
+        // ============================================
+        // GRAPHIQUES
+        // ============================================
+
+        function updateCharts(data) {
+            if (!data || !data.daily) return;
+            const daily = data.daily;
+            const labels = daily.time.map(d => new Date(d).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }));
+
+            const tempCtx = document.getElementById('tempChart').getContext('2d');
+            if (tempChart) tempChart.destroy();
+
+            tempChart = new Chart(tempCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Température max (°C)',
+                            data: daily.temperature_2m_max.map(v => Math.round(v)),
+                            borderColor: '#2b7a4b',
+                            backgroundColor: 'rgba(43,122,75,0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#2b7a4b'
+                        },
+                        {
+                            label: 'Température min (°C)',
+                            data: daily.temperature_2m_min.map(v => Math.round(v)),
+                            borderColor: '#4a9b6a',
+                            backgroundColor: 'rgba(74,155,106,0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            borderDash: [5, 5],
+                            pointRadius: 5,
+                            pointBackgroundColor: '#4a9b6a'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 15, font: { size: 11 } } } },
+                    scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }
+                }
+            });
+
+            const precipCtx = document.getElementById('precipChart').getContext('2d');
+            if (precipChart) precipChart.destroy();
+
+            precipChart = new Chart(precipCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Précipitations (mm)',
+                        data: daily.precipitation_sum.map(v => Math.round(v * 10) / 10),
+                        backgroundColor: 'rgba(33,150,243,0.6)',
+                        borderColor: '#2196F3',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }
+                }
+            });
+        }
+
+        // ============================================
+        // CARTE
+        // ============================================
+
+        function initMap(lat, lng, city) {
+            if (!map) {
+                map = L.map('map').setView([lat, lng], 10);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+            } else {
+                map.setView([lat, lng], 10);
+            }
+
+            if (mapMarker) map.removeLayer(mapMarker);
+
+            mapMarker = L.marker([lat, lng])
+                .addTo(map)
+                .bindPopup(`📍 ${city}`)
+                .openPopup();
+
+            L.circle([lat, lng], {
+                radius: 5000,
+                color: '#2b7a4b',
+                fillColor: '#2b7a4b',
+                fillOpacity: 0.1,
+                weight: 2
+            }).addTo(map);
+        }
+
+        // ============================================
+        // GÉOLOCALISATION
+        // ============================================
+
+        function updateLocationStatus(status, message) {
+            const dot = document.getElementById('locationDot');
+            const text = document.getElementById('locationText');
+            dot.className = 'dot';
+            if (status === 'active') { dot.classList.add('active'); text.textContent = `📍 ${message}`; }
+            else if (status === 'loading') { dot.classList.add('loading'); text.textContent = `⏳ ${message}`; }
+            else if (status === 'error') { dot.classList.add('error'); text.textContent = `❌ ${message}`; }
+        }
+
+       async function getLocation() {
+    updateLocationStatus('loading', 'Recherche de votre position...');
+
+    if (!navigator.geolocation) {
+        updateLocationStatus('error', 'Géolocalisation non supportée. Utilisation de Paris par défaut.');
+        await loadWeather(48.8566, 2.3522, 'Paris, France');
+        return;
+    }
+
+    return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                try {
+                    // ✅ Nominatim (OpenStreetMap) - Pas de CORS
+                    const geoResponse = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&accept-language=fr`
+                    );
+                    const geoData = await geoResponse.json();
+
+                    let city = 'Votre position';
+                    let country = '';
+
+                    if (geoData.address) {
+                        city = geoData.address.city || 
+                               geoData.address.town || 
+                               geoData.address.village || 
+                               geoData.address.hamlet || 
+                               'Votre position';
+                        country = geoData.address.country || '';
+                    }
+
+                    currentCity = city + (country ? `, ${country}` : '');
+                    currentPosition = { lat, lng };
+
+                    updateLocationStatus('active', currentCity);
+                    await loadWeather(lat, lng, currentCity);
+                    resolve();
+
+                } catch (error) {
+                    console.error('Erreur géocodage:', error);
+                    currentCity = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+                    currentPosition = { lat, lng };
+                    updateLocationStatus('active', currentCity);
+                    await loadWeather(lat, lng, currentCity);
+                    resolve();
+                }
+            },
+            async (error) => {
+                console.error('Erreur géolocalisation:', error);
+                updateLocationStatus('error', 'Impossible de récupérer votre position. Utilisation de Paris par défaut.');
+                await loadWeather(48.8566, 2.3522, 'Paris, France');
+                resolve();
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    });
+}
+
+        // ============================================
+        // CHARGEMENT MÉTÉO
+        // ============================================
+
+        async function loadWeather(lat, lng, city) {
+            try {
+                const data = await fetchWeather(lat, lng);
+                displayWeather(data, city);
+                initMap(lat, lng, city);
+            } catch (error) {
+                console.error('Erreur chargement météo:', error);
+                updateLocationStatus('error', 'Erreur de chargement des données météo');
+            }
+        }
+
+        // ============================================
+        // RÉPONSES PAR DÉFAUT DU CHATBOT
+        // ============================================
+
+        function getDefaultReply(message) {
+            const msg = message.toLowerCase();
+
+            if (msg.includes('irrigation') || msg.includes('arrosage') || msg.includes('eau')) {
+                return "💧 **Conseils d'irrigation** :\n\n" +
+                       "• 🌅 Arrosez **tôt le matin** ou **tard le soir** pour limiter l'évaporation\n" +
+                       "• 💧 Utilisez un système **goutte-à-goutte** pour économiser l'eau\n" +
+                       "• 🌾 Paillez le sol pour conserver l'humidité\n" +
+                       "• 📊 Adaptez la quantité d'eau selon les prévisions météo\n" +
+                       "• 🔍 Vérifiez l'humidité du sol avant d'arroser";
+            }
+
+            if (msg.includes('culture') || msg.includes('planter') || msg.includes('recommandation') || msg.includes('conseil')) {
+                return "🌱 **Recommandations de cultures** :\n\n" +
+                       "✅ **Cultures recommandées :**\n" +
+                       "• 🌻 **Tournesol** : résiste bien à la chaleur\n" +
+                       "• 🌽 **Maïs** : avec irrigation régulière\n" +
+                       "• 🫒 **Olivier** : idéal pour climats chauds\n" +
+                       "• 🍇 **Vigne** : la chaleur favorise la maturation\n" +
+                       "• 🌾 **Blé** : adapté à la saison\n\n" +
+                       "📅 **Période idéale** : Printemps et automne";
+            }
+
+            if (msg.includes('sol') || msg.includes('analyse') || msg.includes('terre')) {
+                return "🌍 **Conseils pour l'analyse du sol** :\n\n" +
+                       "1. 🔬 **Analyse régulière** : Faites analyser pH, nutriments\n" +
+                       "2. 🌱 **Amendements** : Utilisez compost et fumier\n" +
+                       "3. 🔄 **Rotation** : Alternez les cultures\n" +
+                       "4. 🌾 **Engrais verts** : Semez trèfle, luzerne\n" +
+                       "5. 💧 **Drainage** : Assurez un bon drainage";
+            }
+
+            if (msg.includes('planning') || msg.includes('semis') || msg.includes('calendrier')) {
+                return "📅 **Planning des semis** :\n\n" +
+                       "🌱 **Printemps-Été** :\n" +
+                       "• Maïs, tournesol, légumes\n" +
+                       "• Semis en pépinière\n\n" +
+                       "🌾 **Automne-Hiver** :\n" +
+                       "• Céréales d'hiver (blé, orge, avoine)\n" +
+                       "• Semis en septembre-octobre\n\n" +
+                       "📊 Adaptez selon votre région et la météo";
+            }
+
+            if (msg.includes('bonjour') || msg.includes('salut') || msg.includes('coucou')) {
+                return "🌾 **Bonjour !** 👋\n\n" +
+                       "Je suis votre assistant agricole IA.\n\n" +
+                       "Posez-moi des questions sur :\n" +
+                       "• 💧 **Irrigation** : conseils d'arrosage\n" +
+                       "• 🌱 **Cultures** : recommandations\n" +
+                       "• 🌍 **Sol** : analyse et amélioration\n" +
+                       "• 📅 **Semis** : planning et calendrier";
+            }
+
+            return "🌾 **Assistant Agricole** :\n\n" +
+                   "Posez-moi des questions sur :\n" +
+                   "• 💧 **Irrigation** : conseils d'arrosage\n" +
+                   "• 🌱 **Cultures** : recommandations\n" +
+                   "• 🌍 **Sol** : analyse et amélioration\n" +
+                   "• 📅 **Semis** : planning et calendrier\n\n" +
+                   "💡 Astuce : Soyez précis dans votre question !";
+        }
+
+        // ============================================
+        // CHATBOT
+        // ============================================
+
+        function getWeatherDescription() {
+    const w = weatherContextData;
+    if (!w.temperature && w.temperature !== 0) return 'Données météo non disponibles';
+    
+    return `🌡️ Température: ${Math.round(w.temperature)}°C
+💧 Humidité: ${w.humidity}%
+🌧️ Précipitations: ${w.precipitation} mm
+💨 Vent: ${Math.round(w.windSpeed)} km/h
+☁️ Conditions: ${w.weatherLabel || 'Normales'}`;
+}
+
+function getForecastSummary() {
+    if (!weatherContextData.forecast) return 'Prévisions non disponibles';
+    
+    const daily = weatherContextData.forecast;
+    let summary = '📅 **Prévisions 7 jours:**\n';
+    
+    for (let i = 0; i < daily.time.length && i < 7; i++) {
+        const date = new Date(daily.time[i]).toLocaleDateString('fr-FR', { 
+            weekday: 'long', 
+            day: 'numeric', 
+            month: 'short' 
+        });
+        const max = Math.round(daily.temperature_2m_max[i]);
+        const min = Math.round(daily.temperature_2m_min[i]);
+        const weather = getWeatherLabel(daily.weather_code[i]);
+        summary += `• ${date}: ${max}°C / ${min}°C, ${weather}\n`;
+    }
+    
+    return summary;
+}
+//📝 CODE COMPLET DES FONCTIONS
+//Remplacez les fonctions dans meteo.html :
+//javascript
+// ============================================
+// CONTEXTE MÉTÉO POUR CHATBOT
+// ============================================
+
+function getWeatherDescription() {
+    const w = weatherContextData;
+    if (!w.temperature && w.temperature !== 0) {
+        return 'Données météo non disponibles';
+    }
+    
+    return `🌡️ Température: ${Math.round(w.temperature)}°C
+💧 Humidité: ${w.humidity}%
+🌧️ Précipitations: ${w.precipitation} mm
+💨 Vent: ${Math.round(w.windSpeed)} km/h
+☁️ Conditions: ${w.weatherLabel || 'Normales'}`;
+}
+
+function getForecastSummary() {
+    if (!weatherContextData.forecast) {
+        return 'Prévisions non disponibles';
+    }
+    
+    const daily = weatherContextData.forecast;
+    let summary = '📅 **Prévisions 7 jours:**\n';
+    
+    for (let i = 0; i < daily.time.length && i < 7; i++) {
+        const date = new Date(daily.time[i]).toLocaleDateString('fr-FR', { 
+            weekday: 'long', 
+            day: 'numeric', 
+            month: 'short' 
+        });
+        const max = Math.round(daily.temperature_2m_max[i]);
+        const min = Math.round(daily.temperature_2m_min[i]);
+        const weather = getWeatherLabel(daily.weather_code[i]);
+        summary += `• ${date}: ${max}°C / ${min}°C, ${weather}\n`;
+    }
+    
+    return summary;
+}
+
+// ============================================
+// CHATBOT AVEC CONTEXTE MÉTÉO
+// ============================================
+
+async function sendToGemini(userMessage) {
+    // ✅ Récupérer les données météo actuelles
+    const weatherContext = getWeatherDescription();
+    const forecastSummary = getForecastSummary();
+    const fullContext = `Données météo actuelles:\n${weatherContext}\n\n${forecastSummary}`;
+    
+    console.log('🌤️ Contexte météo envoyé au chatbot:', fullContext);
+
+    try {
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: userMessage,
+                weatherContext: fullContext
+            })
+        });
+
+        if (!response.ok) {
+            console.error('❌ Erreur Symfony:', response.status);
+            return getDefaultReply(userMessage, weatherContext);
+        }
+
+        const data = await response.json();
+        console.log('✅ Réponse Symfony:', data);
+
+        if (!data.message || data.message === 'Désolé, je n\'ai pas pu générer une réponse.') {
+            return getDefaultReply(userMessage, weatherContext);
+        }
+
+        return data.message;
+
+    } catch (error) {
+        console.error('💥 Erreur:', error);
+        return getDefaultReply(userMessage, weatherContext);
+    }
+}
+        
+
+        // ============================================
+        // INTERFACE CHAT
+        // ============================================
+
+        function addMessage(text, isUser = false) {
+            const container = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${isUser ? 'user' : 'bot'}`;
+            avatar.textContent = isUser ? '👤' : '🌾';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.innerHTML = text.replace(/\n/g, '<br>');
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(bubble);
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showTyping() {
+            document.getElementById('typingIndicator').style.display = 'block';
+        }
+
+        function hideTyping() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const userMessage = input.value.trim();
+            if (!userMessage) return;
+
+            addMessage(userMessage, true);
+            input.value = '';
+            input.style.height = 'auto';
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            showTyping();
+
+            try {
+                const response = await sendToGemini(userMessage);
+                hideTyping();
+                addMessage(response, false);
+            } catch (error) {
+                hideTyping();
+                addMessage(`❌ Désolé, une erreur est survenue.`, false);
+            } finally {
+                sendBtn.disabled = false;
+                document.getElementById('chatInput').focus();
+            }
+        }
+
+        // ============================================
+        // ACTIONS RAPIDES
+        // ============================================
+
+        function sendQuickQuestion(type) {
+            const questions = {
+                'irrigation': 'Donne-moi des conseils d\'irrigation pour mes cultures',
+                'cultures': 'Quelles sont les meilleures cultures à planter ?',
+                'sol': 'Comment analyser et améliorer mon sol ?',
+                'planning': 'Quel est le planning des semis recommandé ?'
+            };
+            const input = document.getElementById('chatInput');
+            input.value = questions[type] || questions.cultures;
+            sendMessage();
+        }
+
+        // ============================================
+        // INITIALISATION
+        // ============================================
+
+        async function init() {
+            if (!checkAuth()) return;
+
+            const name = localStorage.getItem('user_name') || 'Utilisateur';
+            const email = localStorage.getItem('user_email') || 'email@example.com';
+            document.getElementById('userName').textContent = name;
+            document.getElementById('userEmail').textContent = email;
+            document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+
+            await getLocation();
+
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            document.getElementById('logoutSidebarBtn').addEventListener('click', handleLogout);
+            document.getElementById('locateBtn').addEventListener('click', getLocation);
+
+            document.getElementById('sendBtn').addEventListener('click', sendMessage);
+            document.getElementById('chatInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            document.getElementById('chatInput').addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+
+            console.log('🌾 Assistant Agricole IA initialisé');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
