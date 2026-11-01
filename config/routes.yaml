@@ -1,0 +1,39 @@
+
+
+# Routes manuelles
+api_register:
+    path: /api/register
+    controller: App\Controller\AuthController::register
+    methods: ['POST']
+
+api_login:
+    path: /api/login
+    controller: App\Controller\AuthController::login
+    methods: ['POST']
+
+api_user_info:
+    path: /api/me
+    controller: App\Controller\AuthController::getUserInfo
+    methods: ['GET']
+# ============================================
+# CHARGEMENT DES ROUTES DES CONTRÔLEURS
+# ============================================
+controllers:
+    resource: ../src/Controller/
+    type: attribute
+
+# ============================================
+# ROUTE JWT POUR L'AUTHENTIFICATION
+# ============================================
+api_login_check:
+    path: /api/login_check
+# config/routes.yaml
+
+# ... vos autres routes ...
+
+# ✅ Route pour Gemini
+api_gemini:
+    path: /api/gemini
+    controller: App\Controller\GeminiController::chat
+    methods: ['POST']
+

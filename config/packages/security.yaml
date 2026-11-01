@@ -1,0 +1,55 @@
+# config/packages/security.yaml
+security:
+    password_hashers:
+        App\Entity\User:
+            algorithm: auto
+
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
+
+    firewalls:
+        # ✅ 1. Route d'inscription (publique)
+        register:
+            pattern: ^/api/register
+            stateless: true
+            security: false
+
+        # ✅ 2. Route de connexion (publique)
+        login:
+            pattern: ^/api/login
+            stateless: true
+            json_login:
+                check_path: /api/login
+                username_path: email
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+        # ✅ 3. Route Gemini (publique) - DOIT ÊTRE AVANT /api
+        gemini:
+            pattern: ^/api/gemini
+            stateless: true
+            security: false
+
+        # ✅ 4. Routes API protégées par JWT
+        api:
+            pattern: ^/api
+            stateless: true
+            jwt: ~
+
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        main:
+            lazy: true
+            provider: app_user_provider
+
+    access_control:
+        - { path: ^/api/register, roles: PUBLIC_ACCESS }
+        - { path: ^/api/login, roles: PUBLIC_ACCESS }
+        - { path: ^/api/gemini, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: ROLE_USER }
